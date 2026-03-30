@@ -10,8 +10,32 @@ import importlib.util
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, List, Dict, Any
-from run_ncu_memory import profile_bench, load_ncu_metrics, metrics_to_prompt
-from run_nsys import profile_bench as nsys_profile_bench, load_nsys_stats
+# Auto-detect GPU platform and use appropriate profiler
+from gpu_platform import is_amd_gpu, is_nvidia_gpu
+
+if is_amd_gpu():
+    # Use ROCm profiler for AMD GPUs
+    from run_rocm_profiler import profile_bench, load_rocm_metrics as load_ncu_metrics, metrics_to_prompt
+    from run_rocm_profiler import profile_bench as nsys_profile_bench, load_nsys_stats
+    print("[Info] Using ROCm profiler for AMD GPU")
+elif is_nvidia_gpu():
+    # Use NVIDIA profiler for NVIDIA GPUs
+    from run_ncu_memory import profile_bench, load_ncu_metrics, metrics_to_prompt
+    from run_nsys import profile_bench as nsys_profile_bench, load_nsys_stats
+    print("[Info] Using NVIDIA profiler for NVIDIA GPU")
+else:
+    # Fallback - try NVIDIA (will fail gracefully if not available)
+    try:
+        from run_ncu_memory import profile_bench, load_ncu_metrics, metrics_to_prompt
+        from run_nsys import profile_bench as nsys_profile_bench, load_nsys_stats
+    except ImportError as e:
+        print(f"[Warning] No profiler available: {e}")
+        # Create dummy functions
+        profile_bench = None
+        load_ncu_metrics = None
+        metrics_to_prompt = None
+        nsys_profile_bench = None
+        load_nsys_stats = None
 import matplotlib
 matplotlib.use("Agg")  # headless save
 import matplotlib.pyplot as plt
